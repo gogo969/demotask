@@ -99,10 +99,7 @@ func ConfPlatParse(endpoints []string, path string) (Conf, map[string]map[string
 
 	apollo.New(endpoints)
 	apollo.Parse(path, &cfg)
-	platformCfg := "/platform_vn.toml"
-	if cfg.Lang == "cn" {
-		platformCfg = "/platform_cn.toml"
-	}
+	platformCfg := "/common/platform_vn.toml"
 
 	platCfg, err := apollo.ParseToml(platformCfg, true)
 	if err != nil {
