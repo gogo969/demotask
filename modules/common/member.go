@@ -203,17 +203,24 @@ func MemberBalance(db *sqlx.DB, uid string) (decimal.Decimal, error) {
 	return balance, nil
 }
 
-// 检查中心钱包余额是否充足
-func MemberBalanceIsEnough(db *sqlx.DB, uid string, amount decimal.Decimal) (decimal.Decimal, error) {
+func MembersCount(db *sqlx.DB, ex g.Ex) (int, error) {
 
-	balance, err := MemberBalance(db, uid)
-	if err != nil {
-		return balance, err
-	}
+	var count int
+	query, _, _ := dialect.From("tbl_members").Select(g.COUNT("uid")).Where(ex).ToSQL()
+	fmt.Println(query)
+	err := db.Get(&count, query)
 
-	if balance.Sub(amount).IsNegative() {
-		return balance, errors.New(helper.LackOfBalance)
-	}
+	return count, err
+}
 
-	return balance, nil
+func MembersPageNames(db *sqlx.DB, page, pageSize int, ex g.Ex) ([]string, error) {
+
+	var v []string
+	offset := (page - 1) * pageSize
+	query, _, _ := dialect.From("tbl_members").Select("username").
+		Where(ex).Offset(uint(offset)).Limit(uint(pageSize)).Order(g.C("created_at").Asc()).ToSQL()
+	fmt.Println(query)
+	err := db.Select(&v, query)
+
+	return v, err
 }
