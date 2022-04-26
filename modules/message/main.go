@@ -208,7 +208,7 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, ty, sendNa
 	for j := 1; j <= p; j++ {
 		ns, err := common.MembersPageNames(db, j, 100, ex)
 		if err != nil {
-			common.Log("upgrade", "error : %v", err)
+			common.Log("message", "error : %v", err)
 			return
 		}
 
