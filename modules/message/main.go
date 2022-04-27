@@ -1,6 +1,8 @@
 package message
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	g "github.com/doug-martin/goqu/v9"
 	"github.com/fluent/fluent-logger-golang/fluent"
@@ -10,6 +12,7 @@ import (
 	cpool "github.com/silenceper/pool"
 	"strings"
 	"task/contrib/conn"
+	"task/contrib/helper"
 	"task/modules/common"
 	"time"
 )
@@ -19,8 +22,9 @@ var (
 	zlog     *fluent.Fluent
 	esCli    *elastic.Client
 	beanPool cpool.Pool
-	dialect  = g.Dialect("mysql")
+	ctx      = context.Background()
 	esPrefix string
+	dialect  = g.Dialect("mysql")
 )
 
 func Parse(endpoints []string, path string) {
@@ -161,11 +165,17 @@ func sendHandle(param map[string]interface{}) {
 		// 分页发送
 		for j := 0; j < p; j++ {
 			offset := j * 100
-			sendMessage(msgID, title, subTitle, content, isPush, isTop, ty, sendName, prefix, names[offset:offset+100])
+			err := sendMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, names[offset:offset+100])
+			if err != nil {
+				return
+			}
 		}
 		// 最后一页
 		if l > 0 {
-			sendMessage(msgID, title, subTitle, content, isPush, isTop, ty, sendName, prefix, names[p*100:])
+			err := sendMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, names[p*100:])
+			if err != nil {
+				return
+			}
 		}
 	case "1": //vip站内信
 		//会员等级
@@ -177,12 +187,29 @@ func sendHandle(param map[string]interface{}) {
 
 		lvs := strings.Split(level, ",")
 		for _, v := range lvs {
-			sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, ty, sendName, prefix, v)
+			err := sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, v)
+			if err != nil {
+				return
+			}
 		}
+	}
+
+	ex := g.Ex{
+		"id": msgID,
+	}
+	record := g.Record{
+		"send_state": 2,
+	}
+	query, _, _ := dialect.Update("tbl_messages").Set(record).Where(ex).ToSQL()
+	fmt.Println(query)
+	_, err := db.Exec(query)
+	if err != nil {
+		common.Log("message", "query : %s, error : %v \n", query, err)
+		return
 	}
 }
 
-func sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, ty, sendName, prefix, level string) {
+func sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, level string) error {
 
 	ex := g.Ex{
 		"level": level,
@@ -190,13 +217,13 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, ty, sendNa
 	count, err := common.MembersCount(db, ex)
 	if err != nil {
 		common.Log("message", "error : %v", err)
-		return
+		return err
 	}
 
 	fmt.Printf("count : %d\n", count)
 
 	if count == 0 {
-		return
+		return errors.New("no members")
 	}
 
 	p := count / 100
@@ -208,14 +235,45 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, ty, sendNa
 	for j := 1; j <= p; j++ {
 		ns, err := common.MembersPageNames(db, j, 100, ex)
 		if err != nil {
-			common.Log("message", "error : %v", err)
-			return
+			common.Log("message", "MembersPageNames error : %v \n", err)
+			return err
 		}
 
-		sendMessage(msgID, title, subTitle, content, isPush, isTop, ty, sendName, prefix, ns)
+		err = sendMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, ns)
+		if err != nil {
+			common.Log("message", "sendMessage error : %v \n", err)
+			return err
+		}
 	}
+
+	return nil
 }
 
-func sendMessage(msgID, title, subTitle, content, isPush, isTop, ty, sendName, prefix string, names []string) {
+func sendMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix string, names []string) error {
 
+	data := common.Message{
+		MsgID:    msgID,
+		Title:    title,
+		SubTitle: subTitle,
+		Content:  content,
+		IsTop:    isTop,
+		IsVip:    isVip,
+		Ty:       ty,
+		SendName: sendName,
+		SendAt:   time.Now().Unix(),
+		Prefix:   prefix,
+	}
+	bulkRequest := esCli.Bulk().Index(esPrefix + "messages")
+	for _, v := range names {
+		data.Username = v
+		doc := elastic.NewBulkIndexRequest().Id(helper.GenId()).Doc(data)
+		bulkRequest = bulkRequest.Add(doc)
+	}
+
+	_, err := bulkRequest.Refresh("wait_for").Do(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
