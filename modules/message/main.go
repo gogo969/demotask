@@ -314,6 +314,7 @@ func sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix strin
 		Content:  content,
 		IsTop:    isTop,
 		IsVip:    isVip,
+		IsRead:   0,
 		Ty:       ty,
 		SendName: sendName,
 		SendAt:   time.Now().Unix(),
