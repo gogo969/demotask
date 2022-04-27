@@ -10,6 +10,7 @@ import (
 	"github.com/olivere/elastic/v7"
 	"github.com/panjf2000/ants/v2"
 	cpool "github.com/silenceper/pool"
+	"strconv"
 	"strings"
 	"task/contrib/conn"
 	"task/contrib/helper"
@@ -85,6 +86,27 @@ func messageHandle(param map[string]interface{}) {
 
 func deleteHandle(param map[string]interface{}) {
 
+	msgID, ok := param["msg_id"].(string)
+	if !ok {
+		common.Log("message", "deleteHandle msgID param null : %v \n", param)
+		return
+	}
+
+	query := elastic.NewBoolQuery().Filter(elastic.NewTermQuery("msg_id", msgID))
+	id, ok := param["id"].(string)
+	if ok {
+		query = elastic.NewBoolQuery().Filter(
+			elastic.NewTermQuery("msg_id", msgID),
+			elastic.NewTermQuery("id", id))
+		return
+	}
+
+	_, err := esCli.DeleteByQuery(esPrefix + "messages").
+		Query(query).ProceedOnVersionConflict().Do(ctx)
+	if err != nil {
+		common.Log("message", "deleteHandle error : %v \n", err)
+		return
+	}
 }
 
 func sendHandle(param map[string]interface{}) {
@@ -118,24 +140,58 @@ func sendHandle(param map[string]interface{}) {
 		common.Log("message", "sendHandle is_top param null : %v \n", param)
 		return
 	}
+
+	isTops := map[string]bool{
+		"0": true,
+		"1": true,
+	}
+	if _, ok := isTops[isTop]; !ok {
+		common.Log("message", "sendHandle is_top param err : %s \n", isTop)
+		return
+	}
+
+	iIsTop, _ := strconv.Atoi(isTop)
 	//0不推送 1推送
 	isPush, ok := param["is_push"].(string)
 	if !ok {
 		common.Log("message", "sendHandle is_push param null : %v \n", param)
 		return
 	}
+
 	//0非vip站内信 1vip站内信
 	isVip, ok := param["is_vip"].(string)
 	if !ok {
-		common.Log("message", "messageHandle is_vip param null : %v \n", param)
+		common.Log("message", "sendHandle is_vip param null : %v \n", param)
 		return
 	}
+
+	isVips := map[string]bool{
+		"0": true,
+		"1": true,
+	}
+	if _, ok := isVips[isVip]; !ok {
+		common.Log("message", "sendHandle is_vip param err : %s \n", isVip)
+		return
+	}
+
+	iIsVip, _ := strconv.Atoi(isVip)
 	//1站内消息 2活动消息
 	ty, ok := param["ty"].(string)
 	if !ok {
 		common.Log("message", "sendHandle ty param null : %v \n", param)
 		return
 	}
+
+	tys := map[string]bool{
+		"1": true,
+		"2": true,
+	}
+	if _, ok := tys[ty]; !ok {
+		common.Log("message", "sendHandle ty param err : %s \n", ty)
+		return
+	}
+
+	iTy, _ := strconv.Atoi(ty)
 	//发送人名
 	sendName, ok := param["send_name"].(string)
 	if !ok {
@@ -165,14 +221,14 @@ func sendHandle(param map[string]interface{}) {
 		// 分页发送
 		for j := 0; j < p; j++ {
 			offset := j * 100
-			err := sendMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, names[offset:offset+100])
+			err := sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix, iIsTop, iIsVip, iTy, names[offset:offset+100])
 			if err != nil {
 				return
 			}
 		}
 		// 最后一页
 		if l > 0 {
-			err := sendMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, names[p*100:])
+			err := sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix, iIsTop, iIsVip, iTy, names[p*100:])
 			if err != nil {
 				return
 			}
@@ -187,7 +243,7 @@ func sendHandle(param map[string]interface{}) {
 
 		lvs := strings.Split(level, ",")
 		for _, v := range lvs {
-			err := sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, v)
+			err := sendLevelMessage(msgID, title, subTitle, content, isPush, sendName, prefix, v, iIsTop, iIsVip, iTy)
 			if err != nil {
 				return
 			}
@@ -209,7 +265,7 @@ func sendHandle(param map[string]interface{}) {
 	}
 }
 
-func sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, level string) error {
+func sendLevelMessage(msgID, title, subTitle, content, isPush, sendName, prefix, level string, isTop, isVip, ty int) error {
 
 	ex := g.Ex{
 		"level": level,
@@ -239,7 +295,7 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty,
 			return err
 		}
 
-		err = sendMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix, ns)
+		err = sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix, isTop, isVip, ty, ns)
 		if err != nil {
 			common.Log("message", "sendMessage error : %v \n", err)
 			return err
@@ -249,7 +305,7 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty,
 	return nil
 }
 
-func sendMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, sendName, prefix string, names []string) error {
+func sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix string, isTop, isVip, ty int, names []string) error {
 
 	data := common.Message{
 		MsgID:    msgID,
@@ -273,6 +329,10 @@ func sendMessage(msgID, title, subTitle, content, isPush, isTop, isVip, ty, send
 	_, err := bulkRequest.Refresh("wait_for").Do(ctx)
 	if err != nil {
 		return err
+	}
+
+	if isPush == "1" {
+		// todo 推送
 	}
 
 	return nil
