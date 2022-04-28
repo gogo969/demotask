@@ -211,7 +211,7 @@ func sendHandle(param map[string]interface{}) {
 	case "0": //站内消息
 		//会员名
 		usernames, ok := param["usernames"].(string)
-		if !ok {
+		if !ok || usernames == "" {
 			common.Log("message", "sendHandle level param null : %v \n", param)
 			return
 		}
