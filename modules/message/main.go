@@ -69,6 +69,8 @@ func batchMessageTask() {
 
 func messageHandle(param map[string]interface{}) {
 
+	common.Log("message", "messageHandle param : %v \n", param)
+
 	//1 发送站内信 2 删除站内信
 	flag, ok := param["flag"].(string)
 	if !ok {
