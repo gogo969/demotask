@@ -101,10 +101,12 @@ func deleteHandle(param map[string]interface{}) {
 		elastic.NewTermQuery("prefix", prefix))
 	id, ok := param["id"].(string)
 	if ok {
-		query = elastic.NewBoolQuery().Filter(
-			elastic.NewTermQuery("msg_id", msgID),
-			elastic.NewTermQuery("id", id),
-			elastic.NewTermQuery("prefix", prefix)))
+		if id != "" {
+			query = elastic.NewBoolQuery().Filter(
+				elastic.NewTermQuery("msg_id", msgID),
+				elastic.NewTermQuery("id", strings.Split(id, ",")),
+				elastic.NewTermQuery("prefix", prefix))
+		}
 	}
 
 	_, err := esCli.DeleteByQuery(esPrefix + "messages").
