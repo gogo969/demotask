@@ -2,7 +2,6 @@ package message
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	g "github.com/doug-martin/goqu/v9"
 	"github.com/fluent/fluent-logger-golang/fluent"
@@ -291,7 +290,7 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, sendName, prefix,
 	fmt.Printf("count : %d\n", count)
 
 	if count == 0 {
-		return errors.New("no members")
+		return nil
 	}
 
 	p := count / 100
