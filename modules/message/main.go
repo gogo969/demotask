@@ -102,9 +102,13 @@ func deleteHandle(param map[string]interface{}) {
 	id, ok := param["id"].(string)
 	if ok {
 		if id != "" {
+			var ids []interface{}
+			for _, v := range strings.Split(id, ",") {
+				ids = append(ids, v)
+			}
 			query = elastic.NewBoolQuery().Filter(
 				elastic.NewTermQuery("msg_id", msgID),
-				elastic.NewTermQuery("id", strings.Split(id, ",")),
+				elastic.NewTermsQuery("id", ids...),
 				elastic.NewTermQuery("prefix", prefix))
 		}
 	}
