@@ -24,6 +24,7 @@ var (
 	esCli    *elastic.Client
 	beanPool cpool.Pool
 	ctx      = context.Background()
+	prefix   string
 	esPrefix string
 	dialect  = g.Dialect("mysql")
 )
@@ -32,6 +33,7 @@ func Parse(endpoints []string, path string) {
 
 	conf := common.ConfParse(endpoints, path)
 
+	prefix = conf.Prefix
 	esPrefix = conf.EsPrefix
 	// 初始化db
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
@@ -94,12 +96,15 @@ func deleteHandle(param map[string]interface{}) {
 		return
 	}
 
-	query := elastic.NewBoolQuery().Filter(elastic.NewTermQuery("msg_id", msgID))
+	query := elastic.NewBoolQuery().Filter(
+		elastic.NewTermQuery("msg_id", msgID),
+		elastic.NewTermQuery("prefix", prefix))
 	id, ok := param["id"].(string)
 	if ok {
 		query = elastic.NewBoolQuery().Filter(
 			elastic.NewTermQuery("msg_id", msgID),
-			elastic.NewTermQuery("id", id))
+			elastic.NewTermQuery("id", id),
+			elastic.NewTermQuery("prefix", prefix)))
 	}
 
 	_, err := esCli.DeleteByQuery(esPrefix + "messages").
