@@ -100,7 +100,6 @@ func deleteHandle(param map[string]interface{}) {
 		query = elastic.NewBoolQuery().Filter(
 			elastic.NewTermQuery("msg_id", msgID),
 			elastic.NewTermQuery("id", id))
-		return
 	}
 
 	_, err := esCli.DeleteByQuery(esPrefix + "messages").
