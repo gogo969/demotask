@@ -107,7 +107,7 @@ func deleteHandle(param map[string]interface{}) {
 			}
 			query = elastic.NewBoolQuery().Filter(
 				elastic.NewTermQuery("msg_id", msgID),
-				elastic.NewTermsQuery("id", ids...),
+				elastic.NewTermsQuery("_id", ids...),
 				elastic.NewTermQuery("prefix", prefix))
 		}
 	}
