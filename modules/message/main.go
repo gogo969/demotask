@@ -2,7 +2,6 @@ package message
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	g "github.com/doug-martin/goqu/v9"
 	"github.com/fluent/fluent-logger-golang/fluent"
@@ -24,6 +23,7 @@ var (
 	esCli    *elastic.Client
 	beanPool cpool.Pool
 	ctx      = context.Background()
+	prefix   string
 	esPrefix string
 	dialect  = g.Dialect("mysql")
 )
@@ -32,6 +32,7 @@ func Parse(endpoints []string, path string) {
 
 	conf := common.ConfParse(endpoints, path)
 
+	prefix = conf.Prefix
 	esPrefix = conf.EsPrefix
 	// 初始化db
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
@@ -69,6 +70,8 @@ func batchMessageTask() {
 
 func messageHandle(param map[string]interface{}) {
 
+	common.Log("message", "messageHandle param : %v \n", param)
+
 	//1 发送站内信 2 删除站内信
 	flag, ok := param["flag"].(string)
 	if !ok {
@@ -92,13 +95,21 @@ func deleteHandle(param map[string]interface{}) {
 		return
 	}
 
-	query := elastic.NewBoolQuery().Filter(elastic.NewTermQuery("msg_id", msgID))
+	query := elastic.NewBoolQuery().Filter(
+		elastic.NewTermQuery("msg_id", msgID),
+		elastic.NewTermQuery("prefix", prefix))
 	id, ok := param["id"].(string)
 	if ok {
-		query = elastic.NewBoolQuery().Filter(
-			elastic.NewTermQuery("msg_id", msgID),
-			elastic.NewTermQuery("id", id))
-		return
+		if id != "" {
+			var ids []interface{}
+			for _, v := range strings.Split(id, ",") {
+				ids = append(ids, v)
+			}
+			query = elastic.NewBoolQuery().Filter(
+				elastic.NewTermQuery("msg_id", msgID),
+				elastic.NewTermsQuery("_id", ids...),
+				elastic.NewTermQuery("prefix", prefix))
+		}
 	}
 
 	_, err := esCli.DeleteByQuery(esPrefix + "messages").
@@ -209,7 +220,7 @@ func sendHandle(param map[string]interface{}) {
 	case "0": //站内消息
 		//会员名
 		usernames, ok := param["usernames"].(string)
-		if !ok {
+		if !ok || usernames == "" {
 			common.Log("message", "sendHandle level param null : %v \n", param)
 			return
 		}
@@ -279,7 +290,7 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, sendName, prefix,
 	fmt.Printf("count : %d\n", count)
 
 	if count == 0 {
-		return errors.New("no members")
+		return nil
 	}
 
 	p := count / 100
