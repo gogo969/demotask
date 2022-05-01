@@ -69,7 +69,7 @@ func memberFirstDeposit(member common.Member, amount decimal.Decimal, successAt 
 		common.Log("invite", "member first deposit, username: %s, amount: %s", member.Username, amount.Truncate(4).String())
 		return
 	}
-
+	fmt.Println(member.SecondDepositAt)
 	if member.SecondDepositAt == 0 {
 		// 更新用户首存金额 首存时间
 		rec := g.Record{
