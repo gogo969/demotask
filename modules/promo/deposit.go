@@ -69,4 +69,26 @@ func memberFirstDeposit(member common.Member, amount decimal.Decimal, successAt 
 		common.Log("invite", "member first deposit, username: %s, amount: %s", member.Username, amount.Truncate(4).String())
 		return
 	}
+
+	if member.SecondDepositAt == 0 {
+		// 更新用户首存金额 首存时间
+		rec := g.Record{
+			"second_deposit_at":     successAt,
+			"second_deposit_amount": amount.Truncate(4).String(),
+		}
+		ex := g.Ex{
+			"uid": member.UID,
+		}
+		query, _, _ := dialect.Update("tbl_members").Set(rec).Where(ex).ToSQL()
+		fmt.Printf("memberSecondDeposit Update: %v\n", query)
+
+		_, err := db.Exec(query)
+		if err != nil {
+			common.Log("invite", "update member error : %s, sql: %s", err.Error(), query)
+			return
+		}
+
+		common.Log("invite", "member second deposit, username: %s, amount: %s", member.Username, amount.Truncate(4).String())
+		return
+	}
 }

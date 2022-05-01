@@ -7,7 +7,6 @@ replace github.com/coreos/bbolt => go.etcd.io/bbolt v1.3.5
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
 require (
-	bitbucket.org/nwf2013/game v0.4.20
 	github.com/beanstalkd/go-beanstalk v0.1.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/coreos/bbolt v0.0.0-00010101000000-000000000000 // indirect
@@ -19,7 +18,6 @@ require (
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/fluent/fluent-logger-golang v1.5.0
-	github.com/gertd/go-pluralize v0.1.7
 	github.com/go-redis/redis/v8 v8.8.2
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/goccy/go-json v0.7.9
@@ -30,9 +28,7 @@ require (
 	github.com/jmoiron/sqlx v1.3.3
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/json-iterator/go v1.1.11
-	github.com/kataras/i18n v0.0.6
 	github.com/logrusorgru/aurora v2.0.3+incompatible
-	github.com/mattn/go-sqlite3 v1.14.6
 	github.com/minio/md5-simd v1.1.2
 	github.com/minio/minio-go/v7 v7.0.10
 	github.com/modern-go/reflect2 v1.0.1
@@ -57,7 +53,9 @@ require (
 	go.uber.org/zap v1.16.0 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
+	gopkg.in/ini.v1 v1.61.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	lukechampine.com/frand v1.4.2
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
