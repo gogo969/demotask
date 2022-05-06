@@ -2,7 +2,6 @@ package dividend
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/beanstalkd/go-beanstalk"
@@ -13,12 +12,10 @@ import (
 	"github.com/shopspring/decimal"
 	cpool "github.com/silenceper/pool"
 	"github.com/valyala/fasthttp"
-	"lukechampine.com/frand"
 	"strings"
 	"task/contrib/conn"
 	"task/contrib/helper"
 	"task/modules/common"
-	"task/party"
 	"time"
 )
 
@@ -132,7 +129,7 @@ func dividendHandle(m map[string]interface{}) {
 
 	data := dividendInfo{}
 
-	now := time.Now()
+	//now := time.Now()
 	id := m["id"].(string)
 	// 防止重复派发
 	err := common.LockTTL(merchantRedis, "dvd:"+id, 1*time.Minute)
@@ -183,143 +180,6 @@ func dividendHandle(m map[string]interface{}) {
 
 		return
 	}
-
-	ms := now.UnixMilli()
-	// 场馆红利
-	param := map[string]interface{}{
-		"prefix":        prefix,
-		"lang":          lang,
-		"pid":           data.PlatformID,         //三方场馆的ID
-		"transfer_type": common.TransferDividend, //场馆红利
-		"deviceType":    "1",
-		"tester":        "0", // 0 正式用户  1 测试用户
-		"username":      data.Username,
-		"uid":           data.UID,
-		"id":            helper.GenId(),
-		"ip":            common.GetClientIp(),
-		"ms":            fmt.Sprintf("%d", ms),
-		"s":             fmt.Sprintf("%d", now.Unix()),
-		"amount":        data.Amount,
-		"type":          "in",
-		"confirm_at":    m["review_at"],
-		"confirm_uid":   m["review_uid"],
-		"confirm_name":  m["review_name"],
-		"extend":        uint64(ms),
-	}
-
-	// im场馆北京时间处理
-	//if lang == "vn" && (data.PlatformID == "5864536520308659696" || data.PlatformID == "1846182857231915191") {
-	//	param["s8"] = fmt.Sprintf("%d", now.Unix()+3600)
-	//	param["ms8"] = fmt.Sprintf("%d", now.UnixNano()/1e6+3600000)
-	//}
-
-	param["spid"] = param["pid"]
-	pid := data.PlatformID
-	if val, ok := party.PlatMap[data.PlatformID]; ok {
-		pid = val
-		param["pid"] = val
-	}
-
-	// 将场馆参数塞进param中
-	for k, v := range platCfg[pid] {
-		param[k] = v
-	}
-
-	param["prefix"] = prefix
-	platInfo, err := platformRedis(data.PlatformID)
-	if err != nil {
-		platUnregisterMaintain(dividend)
-		common.Log("dividend", "plat info error : %v", err)
-		return
-	}
-
-	if platInfo["wallet"].(float64) == 0 {
-		platUnregisterMaintain(dividend)
-		common.Log("dividend", "platform maintain")
-		return
-	}
-
-	_, ok := party.PlatBY[data.PlatformID]
-	if ok {
-		param["gamecode"] = platInfo["game_code"]
-	}
-
-	plat, _, err := common.MemberPlatformCache(merchantRedis, data.Username, pid)
-	if err != nil || plat.ID == "" {
-
-		plat, err = platReg(param)
-		if err != nil {
-			common.Log("dividend", "plat reg error : %v", err)
-			platUnregisterMaintain(dividend)
-			return
-		}
-	}
-
-	param["password"] = plat.Password
-	err = party.DividendPlatHandOut(merchantDB, merchantRedis, beanPool, param, dividend)
-	if err != nil {
-		common.Log("dividend", "plat dividend hand out error : %v", err)
-		return
-	}
-}
-
-func platReg(param map[string]interface{}) (common.MemberPlatform, error) {
-
-	param["password"] = randPwd()
-	code, _ := party.Dispatch("reg", param)
-	if code == 0 {
-		return common.MemberPlatform{}, errors.New(helper.PlatformRegErr)
-	}
-
-	mp, _, err := common.MemberPlatformInsert(merchantDB, merchantRedis, param)
-
-	return mp, err
-}
-
-func platformRedis(pid string) (map[string]interface{}, error) {
-
-	plat := map[string]interface{}{}
-	k := fmt.Sprintf("plat:%s", pid)
-	res, err := merchantRedis.Get(ctx, k).Result()
-	if err == redis.Nil || err != nil {
-		return plat, err
-	}
-
-	err = helper.JsonUnmarshal([]byte(res), &plat)
-	if err != nil {
-		return plat, err
-	}
-
-	return plat, nil
-}
-
-func platUnregisterMaintain(dividend g.Record) {
-
-	record := g.Record{
-		"state":          common.DividendReviewPass,
-		"hand_out_state": common.DividendFailed,
-		"review_remark":  dividend["review_remark"],
-		"review_at":      dividend["review_at"],
-		"review_uid":     dividend["review_uid"],
-		"review_name":    dividend["review_name"],
-	}
-	ex := g.Ex{
-		"id": dividend["id"],
-	}
-	// 更新调整记录状态
-	query, _, _ := dialect.Update("tbl_member_dividend").Set(record).Where(ex).ToSQL()
-	_, err := merchantDB.Exec(query)
-	if err != nil {
-		common.Log("dividend", "plat dividend hand out failed error : %v", err)
-		return
-	}
-}
-
-func randPwd() string {
-
-	b := frand.Bytes(6)
-	rp := hex.EncodeToString(b)
-	return rp
 }
 
 // 中心钱包红利发放

@@ -22,6 +22,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/goccy/go-json v0.7.9
 	github.com/google/btree v1.0.1 // indirect
+	github.com/google/uuid v1.1.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/ipipdotnet/ipdb-go v1.3.1
@@ -30,7 +31,6 @@ require (
 	github.com/json-iterator/go v1.1.11
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/minio/md5-simd v1.1.2
-	github.com/minio/minio-go/v7 v7.0.10
 	github.com/modern-go/reflect2 v1.0.1
 	github.com/nats-io/nats.go v1.9.1
 	github.com/olivere/elastic/v7 v7.0.24
@@ -46,14 +46,12 @@ require (
 	github.com/valyala/fasthttp v1.24.0
 	github.com/valyala/fastjson v1.6.3
 	github.com/valyala/fasttemplate v1.2.1
-	github.com/valyala/gorpc v0.0.0-20160519171614-908281bef774
 	github.com/wI2L/jettison v0.7.1
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.16.0 // indirect
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
-	gopkg.in/ini.v1 v1.61.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	lukechampine.com/frand v1.4.2
