@@ -7,12 +7,10 @@ import (
 	"strings"
 	"task/modules/banner"
 	"task/modules/bonus"
-	"task/modules/dividend"
 	"task/modules/evo"
 	"task/modules/message"
 	"task/modules/promo"
 	"task/modules/risk"
-	"task/party"
 )
 
 var (
@@ -48,22 +46,6 @@ func main() {
 	endpoints := strings.Split(os.Args[1], ",")
 
 	fmt.Printf("gitReversion = %s\r\nbuildGoVersion = %s\r\nbuildTime = %s\r\n", gitReversion, buildGoVersion, buildTime)
-
-	// 红利单独处理
-	// 红利批量发放
-	if os.Args[3] == "dividend" {
-		// 参数 dividend,socks5://35.240.197.24:9080 dividend_im,socks5://35.240.197.24:9080
-		params := strings.Split(os.Args[4], ",")
-		if len(params) == 2 {
-			party.New(params[1])
-			dividend.Parse(endpoints, os.Args[2], params[0])
-		}
-
-		return
-	}
-
-	// 场馆代理
-	party.New(os.Args[4])
 
 	if val, ok := cb[os.Args[3]]; ok {
 		val(endpoints, os.Args[2])
