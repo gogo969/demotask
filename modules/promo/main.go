@@ -2,10 +2,12 @@ package promo
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
 	g "github.com/doug-martin/goqu/v9"
 	"github.com/go-redis/redis/v8"
 	"github.com/jmoiron/sqlx"
-	"github.com/olivere/elastic/v7"
 	"github.com/panjf2000/ants/v2"
 	cpool "github.com/silenceper/pool"
 	"task/contrib/conn"
@@ -16,97 +18,31 @@ import (
 
 // 活动流水计算脚本
 var (
-	db         *sqlx.DB
-	cli        *redis.Client
-	beanPool   cpool.Pool
-	prefix     string
-	lang       string
-	loc        *time.Location
-	es         *elastic.Client
-	reportEs   *elastic.Client
-	ctx        = context.Background()
-	dialect    = g.Dialect("mysql")
-	colPromo   = helper.EnumFields(Promo{})
-	field      = []interface{}{"period", "display_at", "start_at", "hide_at", "end_at"}
-	esPrefix   string
-	pullPrefix string
-	devices    = map[string]string{
-		"web":      "24",
-		"apph5":    "25,26,27",
-		"sport":    "28,29",
-		"agent":    "30,31",
-		"carousel": "24,25,26,27,28,29,30,31",
-	}
-)
-
-var (
-	promoTyDividend    = "0"
-	promoTyStateChange = "1"
-	promoTyIncite      = "4"
+	db            *sqlx.DB
+	td            *sqlx.DB
+	cli           *redis.Client
+	beanPool      cpool.Pool
+	prefix        string
+	ctx           = context.Background()
+	dialect       = g.Dialect("mysql")
+	colsPromoJson = helper.EnumFields(PromoJson{})
 )
 
 func Parse(endpoints []string, path, flag string) {
 
 	conf := common.ConfParse(endpoints, path)
-	// 获取语言
-	lang = conf.Lang
-	if lang == "cn" {
-		loc, _ = time.LoadLocation("Asia/Shanghai")
-	} else if lang == "vn" || lang == "th" {
-		loc, _ = time.LoadLocation("Asia/Bangkok")
-	}
-
 	prefix = conf.Prefix
-	esPrefix = conf.EsPrefix
-	pullPrefix = conf.PullPrefix
 
-	// 初始化redis
-	cli = conn.InitRedisSentinel(conf.Redis.Addr, conf.Redis.Password, conf.Redis.Sentinel, conf.Redis.Db)
+	// 初始化td
+	td = conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
 	// 初始化db
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
-
-	// 初始化es
-	es = conn.InitES(conf.Es.Host, conf.Es.Username, conf.Es.Password)
-	// 初始化es
-	reportEs = conn.InitES(conf.Es.Host, conf.Es.Username, conf.Es.Password)
+	// 初始化redis
+	cli = conn.InitRedisSentinel(conf.Redis.Addr, conf.Redis.Password, conf.Redis.Sentinel, conf.Redis.Db)
 	// 初始化beanstalk
 	beanPool = conn.InitBeanstalk(conf.Beanstalkd.Addr, 50, 50, 100)
 
-	if flag == "signday" {
-
-		tm := time.Now()
-		//计算当天数据
-		signReport(tm.Unix())
-
-		h := tm.Hour()
-		//如果当前时间1点以前需计算前一天数据
-		if h == 0 {
-			tm = tm.AddDate(0, 0, -1)
-			signReport(tm.Unix())
-		}
-
-		return
-	}
-
-	if flag == "signweek" {
-
-		tm := time.Now()
-		d := tm.Weekday()
-		//周一计算上周签到奖金
-		if d == time.Monday {
-			signHandoutAward(tm.Unix())
-		}
-
-		return
-	}
-
-	if flag == "lastsignload" {
-
-		tm := time.Now()
-		SignLoadRecord(tm.Unix())
-
-		return
-	}
+	common.InitTD(td)
 
 	promoTask()
 }
@@ -114,7 +50,7 @@ func Parse(endpoints []string, path, flag string) {
 // 批量红利派发
 func promoTask() {
 
-	common.Log("promo", "会员场馆流水服务开始")
+	common.Log("promo", "活动脚本开启")
 
 	// 初始化红利批量发放任务队列协程池
 	promoPool, _ := ants.NewPoolWithFunc(10, func(payload interface{}) {
@@ -142,19 +78,112 @@ func promoHandle(m map[string]interface{}) {
 		return
 	}
 
-	beanTy, ok := m["bean_ty"].(string)
+	ty, ok := m["ty"].(string)
 	if !ok {
 		return
 	}
 
-	switch beanTy {
-	case promoTyDividend:
-		promoDividend(m)
-	case promoTyStateChange:
-		promoStateChange(m)
-	case promoTyIncite:
-		depositSendDividendPromo(m)
+	pid, ok := m["pid"].(string)
+	if !ok {
+		return
 	}
 
-	return
+	handle(pid, ty)
+}
+
+func handle(pid, ty string) {
+
+	// 活动状态 1关闭 2开启 3已过期
+	var state int
+	ex := g.Ex{
+		"id": pid,
+	}
+	query, _, _ := dialect.From("tbl_promo").Select("state").Where(ex).ToSQL()
+	common.Log("promo", fmt.Sprintf("query:[%s]", query))
+	err := db.Get(&state, query)
+	if err != nil && err != sql.ErrNoRows {
+		common.Log("promo", fmt.Sprintf("error[%s]", err.Error()))
+		return
+	}
+
+	if err == sql.ErrNoRows {
+		return
+	}
+
+	record := g.Record{}
+	switch ty {
+	case "show":
+		// 已经是开启状态
+		if state == 2 {
+			return
+		}
+		record["state"] = 2
+	case "hide":
+		// 已经是过期状态
+		if state == 3 {
+			return
+		}
+		record["state"] = 3
+	default:
+		return
+	}
+
+	_ = ToCache()
+}
+
+func ToCache() error {
+
+	var (
+		data []PromoJson
+		list string
+	)
+	ex := g.Ex{}
+	query, _, _ := dialect.From("tbl_promo").Select(colsPromoJson...).Where(ex).ToSQL()
+	fmt.Println(query)
+	err := db.Select(&data, query)
+	if err != nil {
+		common.Log("promo", fmt.Sprintf("query:[%s],error[%s]", query, err.Error()))
+		return err
+	}
+
+	if len(data) == 0 {
+		return errors.New(helper.RecordNotExistErr)
+	}
+
+	pipe := cli.TxPipeline()
+	defer pipe.Close()
+
+	list = ""
+	for _, v := range data {
+
+		key := fmt.Sprintf("%s:promo:%s:%s", prefix, v.Flag, v.ID)
+		pipe.Unlink(ctx, key)
+
+		if v.State == 2 {
+
+			s := fmt.Sprintf(`{"static":%s,"rules":%s,"config":%s}`, v.StaticJson, v.RulesJson, v.ConfigJson)
+			pipe.Set(ctx, key, s, 100*time.Hour)
+			pipe.Persist(ctx, key)
+			ls := fmt.Sprintf(`{"static":%s,"id":"%s","state":%d,"flag":"%s"}`, v.StaticJson, v.ID, v.State, v.Flag)
+
+			if list != "" {
+				list += ","
+			}
+			list += ls
+		}
+	}
+	list = "[" + list
+	list += "]"
+
+	key := fmt.Sprintf("%s:promo:list", prefix)
+	pipe.Unlink(ctx, key)
+	pipe.Set(ctx, key, list, 100*time.Hour)
+	pipe.Persist(ctx, key)
+
+	_, err = pipe.Exec(ctx)
+	if err != nil {
+		common.Log("promo", fmt.Sprintf("redis error[%s]", err.Error()))
+	}
+
+	return nil
 }

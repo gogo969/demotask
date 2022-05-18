@@ -42,9 +42,10 @@ type Conf struct {
 			MaxOpenConn int    `json:"max_open_conn"`
 		} `json:"bet"`
 	} `json:"db"`
-	TD struct {
-		Host  string `json:"host"`
-		Token string `json:"token"`
+	Td struct {
+		Addr        string `json:"addr"`
+		MaxIdleConn int    `json:"max_idle_conn"`
+		MaxOpenConn int    `json:"max_open_conn"`
 	} `json:"td"`
 	Zlog struct {
 		Host string `json:"host"`

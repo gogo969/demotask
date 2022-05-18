@@ -2,16 +2,21 @@ package common
 
 import (
 	"fmt"
+	g "github.com/doug-martin/goqu/v9"
+	"github.com/jmoiron/sqlx"
 	"runtime"
 	"strings"
+	"task/contrib/helper"
 	"time"
 )
 
-// 会员绑定邮箱日志
-type taskLog struct {
-	Flag string `msg:"flag" json:"flag"`
-	Info string `msg:"info" json:"info"`
-	Date string `msg:"date" json:"date"`
+var (
+	db *sqlx.DB
+)
+
+// InitTD 初始化td
+func InitTD(td *sqlx.DB) {
+	db = td
 }
 
 func Log(flag, format string, v ...interface{}) {
@@ -25,22 +30,22 @@ func Log(flag, format string, v ...interface{}) {
 	path := fmt.Sprintf("%s:%d", file, line)
 	msg := fmt.Sprintf(format, v...)
 
-	tm := time.Now().Format("2006-01-02 15:04:05")
-	info := fmt.Sprintf("%s|%s|%s", tm, path, msg)
+	ts := time.Now()
+	id := helper.GenId()
 
-	fmt.Println(info)
-
-	if flag == "" {
-		flag = "task"
+	fields := g.Record{
+		"id":       id,
+		"content":  msg,
+		"project":  "task",
+		"flags":    flag,
+		"filename": path,
+		"ts":       ts.UnixMilli(),
 	}
 
-	//lg := taskLog{
-	//	Flag: flag,
-	//	Info: info,
-	//	Date: tm,
-	//}
-	//err := zlog.Post(esPrefix+"task_log", lg)
-	//if err != nil {
-	//	fmt.Println("task log error")
-	//}
+	query, _, _ := dialect.Insert("goerror").Rows(&fields).ToSQL()
+	//fmt.Println(query)
+	_, err := db.Exec(query)
+	if err != nil {
+		fmt.Println("insert SMS = ", err.Error(), fields)
+	}
 }
