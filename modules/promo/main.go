@@ -19,7 +19,6 @@ import (
 // 活动流水计算脚本
 var (
 	db            *sqlx.DB
-	td            *sqlx.DB
 	cli           *redis.Client
 	beanPool      cpool.Pool
 	prefix        string
@@ -33,8 +32,6 @@ func Parse(endpoints []string, path, flag string) {
 	conf := common.ConfParse(endpoints, path)
 	prefix = conf.Prefix
 
-	// 初始化td
-	td = conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
 	// 初始化db
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
 	// 初始化redis
@@ -42,6 +39,8 @@ func Parse(endpoints []string, path, flag string) {
 	// 初始化beanstalk
 	beanPool = conn.InitBeanstalk(conf.Beanstalkd.Addr, 50, 50, 100)
 
+	// 初始化td
+	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
 	common.InitTD(td)
 
 	promoTask()

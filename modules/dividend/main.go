@@ -1,7 +1,6 @@
 package dividend
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/beanstalkd/go-beanstalk"
@@ -21,11 +20,8 @@ import (
 
 var (
 	beanPool      cpool.Pool
-	platCfg       map[string]map[string]interface{}
-	ctx           = context.Background()
 	dialect       = g.Dialect("mysql")
 	prefix        string
-	lang          string
 	merchantRedis *redis.Client
 	merchantDB    *sqlx.DB
 )
@@ -43,20 +39,17 @@ type dividendInfo struct {
 
 func Parse(endpoints []string, path, topic string) {
 
-	conf, platConf, err := common.ConfPlatParse(endpoints, path)
-	if err != nil {
-		fmt.Println("plat config parse error: ", err)
-		return
-	}
+	conf := common.ConfParse(endpoints, path)
 
 	prefix = conf.Prefix
-	lang = conf.Lang
+
 	merchantDB = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxOpenConn)
 	beanPool = conn.InitBeanstalk(conf.Beanstalkd.Addr, 15, 50, 100)
 	merchantRedis = conn.InitRedisSentinel(conf.Redis.Addr, conf.Redis.Password, conf.Redis.Sentinel, conf.Redis.Db)
 
-	// 场馆配置
-	platCfg = platConf
+	// 初始化td
+	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
+	common.InitTD(td)
 
 	batchDividendTask(topic)
 }

@@ -31,7 +31,6 @@ var (
 	beanPool              cpool.Pool
 	cli                   *redis.Client
 	fc                    *fasthttp.Client
-	TokenExp              = 30 * time.Minute
 	OrderLock             = 30 * (24 * time.Hour)
 	Ctx                   = context.Background()
 	dialect               = g.Dialect("mysql")
@@ -47,7 +46,9 @@ const (
 func Parse(endpoints []string, path string) {
 
 	conf := common.ConfParse(endpoints, path)
+
 	prefix = conf.Prefix
+
 	// 初始化beanstalk
 	beanPool = conn.InitBeanstalk(conf.Beanstalkd.Addr, 50, 50, 100)
 	// 初始化db
@@ -57,6 +58,10 @@ func Parse(endpoints []string, path string) {
 	// redis
 	cli = conn.InitRedisSentinel(conf.Redis.Addr, conf.Redis.Password, conf.Redis.Sentinel, conf.Redis.Db)
 
+	// 初始化td
+	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
+	common.InitTD(td)
+	
 	News(os.Args[4])
 
 	batchTask()

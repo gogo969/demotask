@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	g "github.com/doug-martin/goqu/v9"
-	"github.com/fluent/fluent-logger-golang/fluent"
 	"github.com/jmoiron/sqlx"
 	"github.com/olivere/elastic/v7"
 	"github.com/panjf2000/ants/v2"
@@ -19,7 +18,6 @@ import (
 
 var (
 	db       *sqlx.DB
-	zlog     *fluent.Fluent
 	esCli    *elastic.Client
 	beanPool cpool.Pool
 	ctx      = context.Background()
@@ -34,6 +32,7 @@ func Parse(endpoints []string, path string) {
 
 	prefix = conf.Prefix
 	esPrefix = conf.EsPrefix
+
 	// 初始化db
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
 	// 初始化beanstalk
@@ -41,6 +40,10 @@ func Parse(endpoints []string, path string) {
 	// 初始化es
 	esCli = conn.InitES(conf.Es.Host, conf.Es.Username, conf.Es.Password)
 
+	// 初始化td
+	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
+	common.InitTD(td)
+	
 	batchMessageTask()
 }
 

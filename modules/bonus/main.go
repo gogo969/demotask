@@ -21,6 +21,10 @@ func Parse(endpoints []string, path string) {
 	// 初始化redis
 	cli = conn.InitRedisSentinel(conf.Redis.Addr, conf.Redis.Password, conf.Redis.Sentinel, conf.Redis.Db)
 
+	// 初始化td
+	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
+	common.InitTD(td)
+
 	handle()
 }
 

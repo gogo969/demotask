@@ -37,7 +37,7 @@ type Banner struct {
 
 var (
 	db        *sqlx.DB
-	Prefix    string
+	prefix    string
 	beanPool  cpool.Pool
 	cli       *redis.Client
 	ctx       = context.Background()
@@ -48,13 +48,19 @@ var (
 func Parse(endpoints []string, path string) {
 
 	conf := common.ConfParse(endpoints, path)
+	prefix = conf.Prefix
+
 	// 初始化redis
 	cli = conn.InitRedisSentinel(conf.Redis.Addr, conf.Redis.Password, conf.Redis.Sentinel, conf.Redis.Db)
 	// 初始化db
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
 	// 初始化beanstalk
 	beanPool = conn.InitBeanstalk(conf.Beanstalkd.Addr, 50, 50, 100)
-	Prefix = conf.Prefix
+
+	// 初始化td
+	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
+	common.InitTD(td)
+
 	bannerTask()
 }
 
@@ -99,7 +105,7 @@ func bannerHandle(m map[string]interface{}) {
 
 	ex := g.Ex{
 		"id":     id.(string),
-		"prefix": Prefix,
+		"prefix": prefix,
 	}
 	record := g.Record{
 		"state": ty,
@@ -147,7 +153,7 @@ func bannerSplash(pipe redis.Pipeliner) error {
 	ex := g.Ex{
 		"state":  2,
 		"flags":  1,
-		"prefix": Prefix,
+		"prefix": prefix,
 	}
 	query, _, _ := dialect.From("tbl_banner").Select(colBanner...).Where(ex).ToSQL()
 	err := db.Get(&record, query)
@@ -186,7 +192,7 @@ func bannerCarousel(pipe redis.Pipeliner) error {
 	ex := g.Ex{
 		"state":  2,
 		"flags":  2,
-		"prefix": Prefix,
+		"prefix": prefix,
 	}
 	query, _, _ := dialect.From("tbl_banner").Select(colBanner...).Where(ex).Order(g.C("seq").Asc()).ToSQL()
 	err := db.Select(&recs, query)
@@ -239,7 +245,7 @@ func bannerRefreshToCache(id string) error {
 
 	ex := g.Ex{
 		"id":     id,
-		"prefix": Prefix,
+		"prefix": prefix,
 	}
 	query, _, _ := dialect.From("tbl_banner").Select(colBanner...).Where(ex).ToSQL()
 	err := db.Get(&record, query)
