@@ -19,12 +19,6 @@ var (
 	buildGoVersion = ""
 )
 
-type fnP func([]string, string, string)
-
-var cbP = map[string]fnP{
-	"promo": promo.Parse, //活动流水更新
-}
-
 type fn func([]string, string)
 
 var cb = map[string]fn{
@@ -33,6 +27,7 @@ var cb = map[string]fn{
 	"risk":    risk.Parse,    //风控自动派单脚本
 	"evo":     evo.Parse,     //evo
 	"message": message.Parse, //站内信批量发送
+	"promo":   promo.Parse,   //活动流水更新
 }
 
 func main() {
@@ -49,11 +44,6 @@ func main() {
 
 	if val, ok := cb[os.Args[3]]; ok {
 		val(endpoints, os.Args[2])
-	}
-
-	// 带参数的脚本
-	if val, ok := cbP[os.Args[3]]; ok {
-		val(endpoints, os.Args[2], os.Args[4])
 	}
 
 	fmt.Println(os.Args[3], "done")

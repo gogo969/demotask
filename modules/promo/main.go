@@ -27,7 +27,7 @@ var (
 	colsPromoJson = helper.EnumFields(PromoJson{})
 )
 
-func Parse(endpoints []string, path, flag string) {
+func Parse(endpoints []string, path string) {
 
 	conf := common.ConfParse(endpoints, path)
 	prefix = conf.Prefix
@@ -95,7 +95,8 @@ func handle(pid, ty string) {
 	// 活动状态 1关闭 2开启 3已过期
 	var state int
 	ex := g.Ex{
-		"id": pid,
+		"id":     pid,
+		"prefix": prefix,
 	}
 	query, _, _ := dialect.From("tbl_promo").Select("state").Where(ex).ToSQL()
 	common.Log("promo", fmt.Sprintf("query:[%s]", query))
@@ -124,6 +125,14 @@ func handle(pid, ty string) {
 		}
 		record["state"] = 3
 	default:
+		return
+	}
+
+	query, _, _ = dialect.Update("tbl_promo").Set(g.Record{"state": state}).Where(ex).ToSQL()
+	common.Log("promo", fmt.Sprintf("query:[%s]", query))
+	_, err = db.Exec(query)
+	if err != nil {
+		common.Log("promo", fmt.Sprintf("error[%s]", err.Error()))
 		return
 	}
 
@@ -157,12 +166,18 @@ func ToCache() error {
 
 		key := fmt.Sprintf("%s:promo:%s:%s", prefix, v.Flag, v.ID)
 		pipe.Unlink(ctx, key)
+		configKey := fmt.Sprintf("%s:promo:%s:config:%s", prefix, v.Flag, v.ID)
+		pipe.Unlink(ctx, configKey)
 
 		if v.State == 2 {
 
 			s := fmt.Sprintf(`{"static":%s,"rules":%s,"config":%s}`, v.StaticJson, v.RulesJson, v.ConfigJson)
 			pipe.Set(ctx, key, s, 100*time.Hour)
 			pipe.Persist(ctx, key)
+
+			pipe.Set(ctx, configKey, v.ConfigJson, 100*time.Hour)
+			pipe.Persist(ctx, configKey)
+
 			ls := fmt.Sprintf(`{"static":%s,"id":"%s","state":%d,"flag":"%s"}`, v.StaticJson, v.ID, v.State, v.Flag)
 
 			if list != "" {
