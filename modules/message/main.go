@@ -283,7 +283,7 @@ func sendHandle(param map[string]interface{}) {
 
 	record := g.Record{
 		"send_state": 2,
-		"send_at":    time.Now().Format("2006-01-02 15:04:05"),
+		"send_at":    time.Now().Unix(),
 	}
 	query, _, _ = dialect.Update("tbl_messages").Set(record).Where(ex).ToSQL()
 	fmt.Println(query)
