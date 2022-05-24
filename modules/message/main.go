@@ -43,7 +43,7 @@ func Parse(endpoints []string, path string) {
 	// 初始化td
 	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
 	common.InitTD(td)
-	
+
 	batchMessageTask()
 }
 
@@ -219,6 +219,23 @@ func sendHandle(param map[string]interface{}) {
 		return
 	}
 
+	var sendState int
+	ex := g.Ex{
+		"id": msgID,
+	}
+	query, _, _ := dialect.From("tbl_messages").Select("send_state").Where(ex).ToSQL()
+	fmt.Println(query)
+	err := db.Get(&sendState, query)
+	if err != nil {
+		common.Log("message", "query : %s, error : %v \n", query, err)
+		return
+	}
+
+	if sendState == 2 {
+		common.Log("message", "duplicate process \n")
+		return
+	}
+
 	switch isVip {
 	case "0": //站内消息
 		//会员名
@@ -264,15 +281,13 @@ func sendHandle(param map[string]interface{}) {
 		}
 	}
 
-	ex := g.Ex{
-		"id": msgID,
-	}
 	record := g.Record{
 		"send_state": 2,
+		"send_at":    time.Now().Format("2006-01-02 15:04:05"),
 	}
-	query, _, _ := dialect.Update("tbl_messages").Set(record).Where(ex).ToSQL()
+	query, _, _ = dialect.Update("tbl_messages").Set(record).Where(ex).ToSQL()
 	fmt.Println(query)
-	_, err := db.Exec(query)
+	_, err = db.Exec(query)
 	if err != nil {
 		common.Log("message", "query : %s, error : %v \n", query, err)
 		return
