@@ -100,10 +100,10 @@ func handle(pid, ty string) {
 		"prefix": prefix,
 	}
 	query, _, _ := dialect.From("tbl_promo").Select("state").Where(ex).ToSQL()
-	common.Log("promo", fmt.Sprintf("query:[%s]", query))
+	common.Log("promo", query)
 	err := db.Get(&state, query)
 	if err != nil && err != sql.ErrNoRows {
-		common.Log("promo", fmt.Sprintf("error[%s]", err.Error()))
+		common.Log("promo", err.Error())
 		return
 	}
 
@@ -129,11 +129,11 @@ func handle(pid, ty string) {
 		return
 	}
 
-	query, _, _ = dialect.Update("tbl_promo").Set(g.Record{"state": state}).Where(ex).ToSQL()
-	common.Log("promo", fmt.Sprintf("query:[%s]", query))
+	query, _, _ = dialect.Update("tbl_promo").Set(record).Where(ex).ToSQL()
+	common.Log("promo", query)
 	_, err = db.Exec(query)
 	if err != nil {
-		common.Log("promo", fmt.Sprintf("error[%s]", err.Error()))
+		common.Log("promo", err.Error())
 		return
 	}
 
@@ -146,12 +146,11 @@ func ToCache() error {
 		data []PromoJson
 		list string
 	)
-	ex := g.Ex{}
-	query, _, _ := dialect.From("tbl_promo").Select(colsPromoJson...).Where(ex).ToSQL()
-	fmt.Println(query)
+	query, _, _ := dialect.From("tbl_promo").Select(colsPromoJson...).Where(g.Ex{}).ToSQL()
+	common.Log("promo", query)
 	err := db.Select(&data, query)
 	if err != nil {
-		common.Log("promo", fmt.Sprintf("query:[%s],error[%s]", query, err.Error()))
+		common.Log("promo", err.Error())
 		return err
 	}
 
