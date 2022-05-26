@@ -61,8 +61,9 @@ func promoTask() {
 		}
 	})
 
+	topic := fmt.Sprintf("%s:promo", prefix)
 	attr := common.BeansWatcherAttr{
-		TubeName:       "promo",
+		TubeName:       topic,
 		ReserveTimeOut: 2 * time.Minute,
 		Pool:           promoPool,
 	}
