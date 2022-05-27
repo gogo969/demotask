@@ -61,8 +61,9 @@ func batchMessageTask() {
 		}
 	})
 
+	topic := fmt.Sprintf("%s_message", prefix)
 	attr := common.BeansWatcherAttr{
-		TubeName:       "message",
+		TubeName:       topic,
 		ReserveTimeOut: 2 * time.Minute,
 		Pool:           messagePool,
 	}
