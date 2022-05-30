@@ -72,9 +72,9 @@ func tdHandle(m map[string]interface{}) {
 		return
 	}
 
-	its, ie := strconv.ParseInt(ts, 10, 64)
-	if ie != nil {
-		fmt.Println("parse int err:", ie)
+	its, e := strconv.ParseInt(ts, 10, 64)
+	if e != nil {
+		fmt.Println("parse int err:", e)
 	}
 
 	t := dialect.From("sms_log")
