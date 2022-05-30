@@ -2,9 +2,12 @@ package sms
 
 import (
 	"fmt"
+	g "github.com/doug-martin/goqu/v9"
+	_ "github.com/doug-martin/goqu/v9/dialect/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/panjf2000/ants/v2"
 	cpool "github.com/silenceper/pool"
+	"strconv"
 	"task/contrib/conn"
 	"task/modules/common"
 	"time"
@@ -14,6 +17,7 @@ var (
 	td       *sqlx.DB
 	beanPool cpool.Pool
 	prefix   string
+	dialect  = g.Dialect("mysql")
 )
 
 func Parse(endpoints []string, path string) {
@@ -58,5 +62,23 @@ func tdTask() {
 
 //短信自动过期
 func tdHandle(m map[string]interface{}) {
+
 	fmt.Printf("bean data %#v", m)
+	ts, _ := m["ts"].(string)
+	its, _ := strconv.ParseInt(ts, 10, 64)
+	tdInsert("sms_log", g.Record{
+		"ts":         its,
+		"state":      "2", // 过期
+		"updated_at": time.Now().Unix(),
+	})
+}
+
+func tdInsert(tbl string, record g.Record) {
+
+	query, _, _ := dialect.Insert(tbl).Rows(record).ToSQL()
+	fmt.Println(query)
+	_, err := td.Exec(query)
+	if err != nil {
+		common.Log("sms", "update td = error : %s , sql : %s", err.Error(), query)
+	}
 }
