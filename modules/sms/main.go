@@ -36,7 +36,7 @@ func tdTask() {
 	common.Log("sms", "短信自动过期脚本开始")
 
 	// 初始化红利批量发放任务队列协程池
-	promoPool, _ := ants.NewPoolWithFunc(10, func(payload interface{}) {
+	tdPool, _ := ants.NewPoolWithFunc(10, func(payload interface{}) {
 
 		if fn, ok := payload.(common.BeansFnParam); ok {
 			tdHandle(fn.M)
@@ -46,10 +46,11 @@ func tdTask() {
 	})
 
 	topic := fmt.Sprintf("%s_sms", prefix)
+	fmt.Printf("topic : %s\n", topic)
 	attr := common.BeansWatcherAttr{
 		TubeName:       topic,
 		ReserveTimeOut: 2 * time.Minute,
-		Pool:           promoPool,
+		Pool:           tdPool,
 	}
 
 	common.BeanstalkWatcher(beanPool, attr)
