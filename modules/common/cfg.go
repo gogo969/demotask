@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"task/contrib/apollo"
 )
 
@@ -87,8 +86,6 @@ func ConfParse(endpoints []string, path string) Conf {
 	apollo.New(endpoints)
 	apollo.Parse(path, &cfg)
 	apollo.Close()
-
-	fmt.Println("config : ", cfg)
 
 	return cfg
 }
