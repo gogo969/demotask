@@ -64,13 +64,38 @@ func tdTask() {
 func tdHandle(m map[string]interface{}) {
 
 	fmt.Printf("bean data %#v", m)
-	ts, _ := m["ts"].(string)
-	its, _ := strconv.ParseInt(ts, 10, 64)
-	tdInsert("sms_log", g.Record{
-		"ts":         its,
-		"state":      "2", // 过期
-		"updated_at": time.Now().Unix(),
-	})
+	if m == nil {
+		return
+	}
+	ts, ok := m["ts"].(string)
+	if !ok {
+		return
+	}
+
+	its, ie := strconv.ParseInt(ts, 10, 64)
+	if ie != nil {
+		fmt.Println("parse int err:", ie)
+	}
+
+	t := dialect.From("sms_log")
+	ex := g.Ex{
+		"ts": its,
+	}
+
+	var state string
+	query, _, _ := t.Select("state").Where(ex).ToSQL()
+	err := td.Select(&state, query)
+	if err != nil {
+		common.Log("sms", err.Error())
+	}
+
+	if state == "0" {
+		tdInsert("sms_log", g.Record{
+			"ts":         its,
+			"state":      "2",
+			"updated_at": time.Now().Unix(),
+		})
+	}
 }
 
 func tdInsert(tbl string, record g.Record) {
