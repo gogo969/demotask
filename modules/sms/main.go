@@ -86,20 +86,20 @@ func tdHandle(m map[string]interface{}) {
 		"ts": its,
 	}
 
-	data := SMSState{}
+	data := make([]SMSState, 0)
 
 	query, _, _ := t.Select("state").Where(ex).ToSQL()
 	fmt.Println("read query = ", query)
 
-	err := td.Select(&data.State, query)
+	err := td.Select(&data, query)
 	if err != nil {
 		common.Log("sms", err.Error())
 	}
 
-	fmt.Println("state = ", data.State)
+	fmt.Println("state = ", data[0].State)
 	fmt.Println("==== Will Update TD ===")
 
-	if data.State == "0" {
+	if data[0].State == "0" {
 		tdInsert("sms_log", g.Record{
 			"ts":         its,
 			"state":      "2",
