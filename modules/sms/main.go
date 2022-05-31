@@ -82,15 +82,18 @@ func tdHandle(m map[string]interface{}) {
 		"ts": its,
 	}
 
-	var state int
+	data := struct {
+		State string `json:"state" db:"state"`
+	}{}
+
 	query, _, _ := t.Select("state").Where(ex).ToSQL()
-	err := td.Select(&state, query)
+	err := td.Select(&data, query)
 	if err != nil {
 		common.Log("sms", err.Error())
 	}
-	fmt.Println(state)
+	fmt.Println("state = ", data.State)
 	fmt.Println("==== Will Update TD ===")
-	if state == 0 {
+	if data.State == "0" {
 		tdInsert("sms_log", g.Record{
 			"ts":         its,
 			"state":      "2",
