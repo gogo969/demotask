@@ -63,7 +63,7 @@ func tdTask() {
 //短信自动过期
 func tdHandle(m map[string]interface{}) {
 
-	fmt.Printf("bean data %#v", m)
+	fmt.Printf("bean data %#v \n", m)
 	if m == nil {
 		return
 	}
@@ -89,6 +89,7 @@ func tdHandle(m map[string]interface{}) {
 		common.Log("sms", err.Error())
 	}
 
+	fmt.Println("==== Will Update TD ===")
 	if state == "0" {
 		tdInsert("sms_log", g.Record{
 			"ts":         its,
@@ -96,6 +97,7 @@ func tdHandle(m map[string]interface{}) {
 			"updated_at": time.Now().Unix(),
 		})
 	}
+	fmt.Println("==== End Update TD ===")
 }
 
 func tdInsert(tbl string, record g.Record) {
@@ -104,6 +106,7 @@ func tdInsert(tbl string, record g.Record) {
 	fmt.Println(query)
 	_, err := td.Exec(query)
 	if err != nil {
+		fmt.Println(err)
 		common.Log("sms", "update td = error : %s , sql : %s", err.Error(), query)
 	}
 }
