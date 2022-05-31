@@ -60,6 +60,10 @@ func tdTask() {
 	common.BeanstalkWatcher(beanPool, attr)
 }
 
+type SMSState struct {
+	State string `json:"state" db:"state"`
+}
+
 //短信自动过期
 func tdHandle(m map[string]interface{}) {
 
@@ -82,18 +86,19 @@ func tdHandle(m map[string]interface{}) {
 		"ts": its,
 	}
 
-	data := struct {
-		State string `json:"state" db:"state"`
-	}{}
+	data := SMSState{}
 
 	query, _, _ := t.Select("state").Where(ex).ToSQL()
 	fmt.Println("read query = ", query)
+
 	err := td.Select(&data, query)
 	if err != nil {
 		common.Log("sms", err.Error())
 	}
+
 	fmt.Println("state = ", data.State)
 	fmt.Println("==== Will Update TD ===")
+
 	if data.State == "0" {
 		tdInsert("sms_log", g.Record{
 			"ts":         its,
