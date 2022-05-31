@@ -87,6 +87,7 @@ func tdHandle(m map[string]interface{}) {
 	}{}
 
 	query, _, _ := t.Select("state").Where(ex).ToSQL()
+	fmt.Println("read query = ", query)
 	err := td.Select(&data, query)
 	if err != nil {
 		common.Log("sms", err.Error())
