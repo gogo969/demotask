@@ -82,15 +82,15 @@ func tdHandle(m map[string]interface{}) {
 		"ts": its,
 	}
 
-	var state string
+	var state int
 	query, _, _ := t.Select("state").Where(ex).ToSQL()
 	err := td.Select(&state, query)
 	if err != nil {
 		common.Log("sms", err.Error())
 	}
-
+	fmt.Println(state)
 	fmt.Println("==== Will Update TD ===")
-	if state == "0" {
+	if state == 0 {
 		tdInsert("sms_log", g.Record{
 			"ts":         its,
 			"state":      "2",
