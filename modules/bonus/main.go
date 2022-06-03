@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	cli *redis.Client
+	cli *redis.ClusterClient
 	ctx = context.Background()
 )
 
@@ -19,7 +19,7 @@ func Parse(endpoints []string, path string) {
 
 	conf := common.ConfParse(endpoints, path)
 	// 初始化redis
-	cli = conn.InitRedisSentinel(conf.Redis.Addr, conf.Redis.Password, conf.Redis.Sentinel, conf.Redis.Db)
+	cli = conn.InitRedisCluster(conf.Redis.Addr, conf.Redis.Password)
 
 	// 初始化td
 	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)

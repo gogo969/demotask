@@ -39,7 +39,7 @@ var (
 	db        *sqlx.DB
 	prefix    string
 	beanPool  cpool.Pool
-	cli       *redis.Client
+	cli       *redis.ClusterClient
 	ctx       = context.Background()
 	dialect   = g.Dialect("mysql")
 	colBanner = helper.EnumFields(Banner{})
@@ -51,7 +51,7 @@ func Parse(endpoints []string, path string) {
 	prefix = conf.Prefix
 
 	// 初始化redis
-	cli = conn.InitRedisSentinel(conf.Redis.Addr, conf.Redis.Password, conf.Redis.Sentinel, conf.Redis.Db)
+	cli = conn.InitRedisCluster(conf.Redis.Addr, conf.Redis.Password)
 	// 初始化db
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
 	// 初始化beanstalk

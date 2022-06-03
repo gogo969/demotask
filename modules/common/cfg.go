@@ -46,15 +46,9 @@ type Conf struct {
 		MaxIdleConn int    `json:"max_idle_conn"`
 		MaxOpenConn int    `json:"max_open_conn"`
 	} `json:"td"`
-	Zlog struct {
-		Host string `json:"host"`
-		Port int    `json:"port"`
-	} `json:"zlog"`
 	Redis struct {
 		Addr     []string `json:"addr"`
 		Password string   `json:"password"`
-		Sentinel string   `json:"sentinel"`
-		Db       int      `json:"db"`
 	} `json:"redis"`
 	Minio struct {
 		ImagesBucket    string `json:"images_bucket"`
@@ -70,13 +64,6 @@ type Conf struct {
 		Username string   `json:"username"`
 		Password string   `json:"password"`
 	} `json:"es"`
-	Port struct {
-		Game     string `json:"game"`
-		Member   string `json:"member"`
-		Promo    string `json:"promo"`
-		Merchant string `json:"merchant"`
-		Finance  string `json:"finance"`
-	} `json:"port"`
 }
 
 func ConfParse(endpoints []string, path string) Conf {

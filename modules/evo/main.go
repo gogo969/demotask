@@ -29,7 +29,7 @@ var (
 	betDB                 *sqlx.DB
 	db                    *sqlx.DB
 	beanPool              cpool.Pool
-	cli                   *redis.Client
+	cli                   *redis.ClusterClient
 	fc                    *fasthttp.Client
 	OrderLock             = 30 * (24 * time.Hour)
 	Ctx                   = context.Background()
@@ -56,12 +56,12 @@ func Parse(endpoints []string, path string) {
 	// 初始化db
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
 	// redis
-	cli = conn.InitRedisSentinel(conf.Redis.Addr, conf.Redis.Password, conf.Redis.Sentinel, conf.Redis.Db)
+	cli = conn.InitRedisCluster(conf.Redis.Addr, conf.Redis.Password)
 
 	// 初始化td
 	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
 	common.InitTD(td)
-	
+
 	News(os.Args[4])
 
 	batchTask()
@@ -179,7 +179,7 @@ func Credit(txnId, username string, info EvoResult, t time.Time) {
 	ex := g.Ex{
 		"bill_no":   billNo,
 		"username":  mem.Username,
-		"cash_type": common.TransactionBet,
+		"cash_type": helper.TransactionBet,
 	}
 
 	//判断是否有订单
@@ -195,11 +195,11 @@ func Credit(txnId, username string, info EvoResult, t time.Time) {
 	creditAmount := decimal.NewFromFloat(info.Payout).Div(Kvnd)
 	netAmount := creditAmount.Sub(betAmount)
 
-	cashType := common.TransactionPayout
+	cashType := helper.TransactionPayout
 	flag := "1"
 	if info.IsCancel == 1 {
 		flag = "3"
-		cashType = common.TransactionBetCancel
+		cashType = helper.TransactionBetCancel
 	}
 
 	if creditAmount.Cmp(decimal.Zero) > 0 {
@@ -269,14 +269,14 @@ func transactionsOperate(cashType int) string {
 
 	switch cashType {
 	// 投注,重新结算减币,取消派彩
-	case common.TransactionBet, common.TransactionResettleDeduction, common.TransactionCancelPayout:
+	case helper.TransactionBet, helper.TransactionResettleDeduction, helper.TransactionCancelPayout:
 		return "-"
 		// 投注取消,派彩,重新结算加币
-	case common.TransactionBetCancel, common.TransactionPayout, common.TransactionResettlePlus,
+	case helper.TransactionBetCancel, helper.TransactionPayout, helper.TransactionResettlePlus,
 		//EVO红利
-		common.TransactionEVOPrize,
-		common.TransactionEVOPromote,
-		common.TransactionEVOJackpot:
+		helper.TransactionEVOPrize,
+		helper.TransactionEVOPromote,
+		helper.TransactionEVOJackpot:
 		return "+"
 		// 错误的帐变类型
 	default:

@@ -26,7 +26,7 @@ var (
 	ctx = context.Background()
 )
 
-func Lock(r *redis.Client, id string) error {
+func Lock(r *redis.ClusterClient, id string) error {
 
 	val := fmt.Sprintf("%s%s", defaultRedisKeyPrefix, id)
 	ok, err := r.SetNX(ctx, val, "1", LockTimeout).Result()
@@ -40,7 +40,7 @@ func Lock(r *redis.Client, id string) error {
 	return nil
 }
 
-func LockWait(r *redis.Client, id string, ttl time.Duration) error {
+func LockWait(r *redis.ClusterClient, id string, ttl time.Duration) error {
 
 	val := fmt.Sprintf("%s%s", defaultRedisKeyPrefix, id)
 
@@ -59,7 +59,7 @@ func LockWait(r *redis.Client, id string, ttl time.Duration) error {
 	}
 }
 
-func LockTTL(r *redis.Client, id string, ttl time.Duration) error {
+func LockTTL(r *redis.ClusterClient, id string, ttl time.Duration) error {
 
 	val := fmt.Sprintf("%s%s", defaultRedisKeyPrefix, id)
 	ok, err := r.SetNX(ctx, val, "1", ttl).Result()
@@ -70,7 +70,7 @@ func LockTTL(r *redis.Client, id string, ttl time.Duration) error {
 	return nil
 }
 
-func LockSetExpire(r *redis.Client, id string, expiration time.Duration) error {
+func LockSetExpire(r *redis.ClusterClient, id string, expiration time.Duration) error {
 
 	val := fmt.Sprintf("%s%s", defaultRedisKeyPrefix, id)
 	ok, err := r.Expire(ctx, val, expiration).Result()
@@ -81,7 +81,7 @@ func LockSetExpire(r *redis.Client, id string, expiration time.Duration) error {
 	return nil
 }
 
-func Unlock(r *redis.Client, id string) {
+func Unlock(r *redis.ClusterClient, id string) {
 
 	val := fmt.Sprintf("%s%s", defaultRedisKeyPrefix, id)
 	res, err := r.Unlink(ctx, val).Result()
