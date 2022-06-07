@@ -100,7 +100,7 @@ func deleteHandle(param map[string]interface{}) {
 		"prefix":     prefix,
 		"message_id": msgID,
 	}
-	query, _, _ := dialect.From("tbl_messages").Select("ts").Where(ex).ToSQL()
+	query, _, _ := dialect.From("messages").Select("ts").Where(ex).ToSQL()
 	fmt.Println(query)
 	err := td.Select(&tss, query)
 	if err != nil {
@@ -118,7 +118,7 @@ func deleteHandle(param map[string]interface{}) {
 	}
 	query, _, _ = dialect.Insert("messages").Rows(&records).ToSQL()
 	fmt.Println(query)
-	_, err = db.Exec(query)
+	_, err = td.Exec(query)
 	if err != nil {
 		fmt.Println("insert messages = ", err.Error(), records)
 	}
@@ -361,7 +361,7 @@ func sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix strin
 
 	query, _, _ := dialect.Insert("messages").Rows(&records).ToSQL()
 	fmt.Println(query)
-	_, err := db.Exec(query)
+	_, err := td.Exec(query)
 	if err != nil {
 		fmt.Println("insert messages = ", err.Error(), records)
 	}
