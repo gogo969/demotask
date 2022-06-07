@@ -351,19 +351,18 @@ func sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix strin
 		"send_at":    time.Now().Unix(),
 		"ty":         ty,
 	}
-	var records []g.Record
+	//var records []g.Record
 	for k, v := range names {
-		ts := time.Now()
-		record["ts"] = ts.UnixMilli() + int64(k)
+		record["ts"] = time.Now().UnixMilli() + int64(k)
 		record["username"] = v
-		records = append(records, record)
-	}
 
-	query, _, _ := dialect.Insert("messages").Rows(records).ToSQL()
-	fmt.Println(query)
-	_, err := td.Exec(query)
-	if err != nil {
-		fmt.Println("insert messages = ", err.Error(), records)
+		query, _, _ := dialect.Insert("messages").Rows(record).ToSQL()
+		fmt.Println(query)
+		_, err := td.Exec(query)
+		if err != nil {
+			fmt.Println("insert messages = ", err.Error(), query)
+		}
+		//records = append(records, record)
 	}
 
 	return nil
