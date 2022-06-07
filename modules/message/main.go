@@ -5,20 +5,18 @@ import (
 	"fmt"
 	g "github.com/doug-martin/goqu/v9"
 	"github.com/jmoiron/sqlx"
-	"github.com/olivere/elastic/v7"
 	"github.com/panjf2000/ants/v2"
 	cpool "github.com/silenceper/pool"
 	"strconv"
 	"strings"
 	"task/contrib/conn"
-	"task/contrib/helper"
 	"task/modules/common"
 	"time"
 )
 
 var (
 	db       *sqlx.DB
-	esCli    *elastic.Client
+	td       *sqlx.DB
 	beanPool cpool.Pool
 	ctx      = context.Background()
 	prefix   string
@@ -37,11 +35,9 @@ func Parse(endpoints []string, path string) {
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
 	// 初始化beanstalk
 	beanPool = conn.InitBeanstalk(conf.Beanstalkd.Addr, 50, 50, 100)
-	// 初始化es
-	esCli = conn.InitES(conf.Es.Host, conf.Es.Username, conf.Es.Password)
 
 	// 初始化td
-	td := conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
+	td = conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
 	common.InitTD(td)
 
 	batchMessageTask()
@@ -99,28 +95,32 @@ func deleteHandle(param map[string]interface{}) {
 		return
 	}
 
-	query := elastic.NewBoolQuery().Filter(
-		elastic.NewTermQuery("msg_id", msgID),
-		elastic.NewTermQuery("prefix", prefix))
-	id, ok := param["id"].(string)
-	if ok {
-		if id != "" {
-			var ids []interface{}
-			for _, v := range strings.Split(id, ",") {
-				ids = append(ids, v)
-			}
-			query = elastic.NewBoolQuery().Filter(
-				elastic.NewTermQuery("msg_id", msgID),
-				elastic.NewTermsQuery("_id", ids...),
-				elastic.NewTermQuery("prefix", prefix))
-		}
+	var tss []int64
+	ex := g.Ex{
+		"prefix":     prefix,
+		"message_id": msgID,
+	}
+	query, _, _ := dialect.From("tbl_messages").Select("ts").Where(ex).ToSQL()
+	fmt.Println(query)
+	err := td.Select(&tss, query)
+	if err != nil {
+		common.Log("message", "query : %s, error : %v \n", query, err)
+		return
 	}
 
-	_, err := esCli.DeleteByQuery(esPrefix + "messages").
-		Query(query).ProceedOnVersionConflict().Do(ctx)
+	var records []g.Record
+	for _, v := range tss {
+		record := g.Record{
+			"ts":        v,
+			"is_delete": 1,
+		}
+		records = append(records, record)
+	}
+	query, _, _ = dialect.Insert("messages").Rows(&records).ToSQL()
+	fmt.Println(query)
+	_, err = db.Exec(query)
 	if err != nil {
-		common.Log("message", "deleteHandle error : %v \n", err)
-		return
+		fmt.Println("insert messages = ", err.Error(), records)
 	}
 }
 
@@ -337,33 +337,33 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, sendName, prefix,
 
 func sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix string, isTop, isVip, ty int, names []string) error {
 
-	data := common.Message{
-		MsgID:    msgID,
-		Title:    title,
-		SubTitle: subTitle,
-		Content:  content,
-		IsTop:    isTop,
-		IsVip:    isVip,
-		IsRead:   0,
-		Ty:       ty,
-		SendName: sendName,
-		SendAt:   time.Now().Unix(),
-		Prefix:   prefix,
+	record := g.Record{
+		"message_id": msgID,
+		"title":      title,
+		"sub_title":  subTitle,
+		"content":    content,
+		"send_name":  sendName,
+		"prefix":     prefix,
+		"is_top":     isTop,
+		"is_vip":     isVip,
+		"is_read":    0,
+		"is_delete":  0,
+		"send_at":    time.Now().Unix(),
+		"ty":         ty,
 	}
-	bulkRequest := esCli.Bulk().Index(esPrefix + "messages")
+	var records []g.Record
 	for _, v := range names {
-		data.Username = v
-		doc := elastic.NewBulkIndexRequest().Id(helper.GenId()).Doc(data)
-		bulkRequest = bulkRequest.Add(doc)
+		ts := time.Now()
+		record["ts"] = ts.UnixMilli()
+		record["username"] = v
+		records = append(records, record)
 	}
 
-	_, err := bulkRequest.Refresh("wait_for").Do(ctx)
+	query, _, _ := dialect.Insert("messages").Rows(&records).ToSQL()
+	fmt.Println(query)
+	_, err := db.Exec(query)
 	if err != nil {
-		return err
-	}
-
-	if isPush == "1" {
-		// todo 推送
+		fmt.Println("insert messages = ", err.Error(), records)
 	}
 
 	return nil
