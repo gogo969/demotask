@@ -39,7 +39,7 @@ func Log(flag, format string, v ...interface{}) {
 		"project":  "task",
 		"flags":    flag,
 		"filename": path,
-		"ts":       ts.UnixMilli(),
+		"ts":       ts.UnixMicro(),
 	}
 
 	query, _, _ := dialect.Insert("goerror").Rows(&fields).ToSQL()
