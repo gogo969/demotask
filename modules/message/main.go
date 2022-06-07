@@ -1,7 +1,6 @@
 package message
 
 import (
-	"context"
 	"fmt"
 	g "github.com/doug-martin/goqu/v9"
 	"github.com/jmoiron/sqlx"
@@ -18,9 +17,8 @@ var (
 	db       *sqlx.DB
 	td       *sqlx.DB
 	beanPool cpool.Pool
-	ctx      = context.Background()
 	prefix   string
-	esPrefix string
+	loc      *time.Location
 	dialect  = g.Dialect("mysql")
 )
 
@@ -29,8 +27,8 @@ func Parse(endpoints []string, path string) {
 	conf := common.ConfParse(endpoints, path)
 
 	prefix = conf.Prefix
-	esPrefix = conf.EsPrefix
 
+	loc, _ = time.LoadLocation("Asia/Bangkok")
 	// 初始化db
 	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
 	// 初始化beanstalk
@@ -95,7 +93,7 @@ func deleteHandle(param map[string]interface{}) {
 		return
 	}
 
-	var tss []int64
+	var tss []string
 	ex := g.Ex{
 		"prefix":     prefix,
 		"message_id": msgID,
@@ -110,8 +108,10 @@ func deleteHandle(param map[string]interface{}) {
 
 	var records []g.Record
 	for _, v := range tss {
+		// 2022-06-07T16:28:26.285+07:00
+		t, _ := time.ParseInLocation(time.RFC3339, v, loc)
 		record := g.Record{
-			"ts":        v,
+			"ts":        t.UnixMilli(),
 			"is_delete": 1,
 		}
 		records = append(records, record)
