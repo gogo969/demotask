@@ -89,7 +89,7 @@ func messageHandle(param map[string]interface{}) {
 
 func deleteHandle(param map[string]interface{}) {
 
-	msgID, ok := param["msg_id"].(string)
+	msgID, ok := param["message_id"].(string)
 	if !ok {
 		common.Log("message", "deleteHandle msgID param null : %v \n", param)
 		return
