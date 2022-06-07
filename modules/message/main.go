@@ -352,9 +352,9 @@ func sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix strin
 		"ty":         ty,
 	}
 	var records []g.Record
-	for _, v := range names {
+	for k, v := range names {
 		ts := time.Now()
-		record["ts"] = ts.UnixMilli()
+		record["ts"] = ts.UnixMilli() + int64(k)
 		record["username"] = v
 		records = append(records, record)
 	}
