@@ -109,7 +109,12 @@ func deleteHandle(param map[string]interface{}) {
 	var records []g.Record
 	for _, v := range tss {
 		// 2022-06-07T16:28:26.285+07:00
-		t, _ := time.ParseInLocation("2006-01-02T15:04:05.999999+07:00", v, loc)
+		t, err := time.ParseInLocation("2006-01-02T15:04:05.999999+07:00", v, loc)
+		if err != nil {
+			common.Log("message", "query : %s, error : %v \n", query, err)
+			return
+		}
+
 		record := g.Record{
 			"ts":        t.UnixMicro(),
 			"is_delete": 1,
