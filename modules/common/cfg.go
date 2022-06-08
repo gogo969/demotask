@@ -19,6 +19,7 @@ type Conf struct {
 		Username string   `json:"username"`
 		Password string   `json:"password"`
 	} `json:"nats"`
+	Rocketmq   []string `json:"rocketmq"`
 	Beanstalkd struct {
 		Addr    string `json:"addr"`
 		MaxIdle int    `json:"maxIdle"`

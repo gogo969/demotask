@@ -1,79 +1,67 @@
-package message
+package rocket
 
 import (
+	"context"
 	"fmt"
+	"github.com/apache/rocketmq-client-go/v2/consumer"
+	"github.com/apache/rocketmq-client-go/v2/primitive"
 	g "github.com/doug-martin/goqu/v9"
-	"github.com/jmoiron/sqlx"
 	"github.com/panjf2000/ants/v2"
-	cpool "github.com/silenceper/pool"
+	"github.com/valyala/fasthttp"
 	"strconv"
 	"strings"
-	"task/contrib/conn"
 	"task/modules/common"
 	"time"
 )
 
-var (
-	db       *sqlx.DB
-	td       *sqlx.DB
-	beanPool cpool.Pool
-	prefix   string
-	loc      *time.Location
-	dialect  = g.Dialect("mysql")
-)
+func batchCgBetTask() {
 
-func Parse(endpoints []string, path string) {
+	// 初始化投注记录任务队列协程池
+	confirmPool, _ := ants.NewPoolWithFunc(500, func(bet interface{}) {
 
-	conf := common.ConfParse(endpoints, path)
-
-	prefix = conf.Prefix
-
-	loc, _ = time.LoadLocation("Asia/Bangkok")
-	// 初始化db
-	db = conn.InitDB(conf.Db.Master.Addr, conf.Db.Master.MaxIdleConn, conf.Db.Master.MaxIdleConn)
-	// 初始化beanstalk
-	beanPool = conn.InitBeanstalk(conf.Beanstalkd.Addr, 50, 50, 100)
-
-	// 初始化td
-	td = conn.InitTD(conf.Td.Addr, conf.Td.MaxIdleConn, conf.Td.MaxOpenConn)
-	common.InitTD(td)
-
-	batchMessageTask()
-}
-
-// 站内信处理
-func batchMessageTask() {
-
-	// 初始化场馆转账订单任务队列协程池
-	messagePool, _ := ants.NewPoolWithFunc(500, func(payload interface{}) {
-
-		if fn, ok := payload.(common.BeansFnParam); ok {
-			// 场馆转账订单确认
-			messageHandle(fn.M)
-			// 删除job
-			_ = fn.Conn.Delete(fn.ID)
+		if payload, ok := bet.(string); ok {
+			// 站内信处理
+			messageHandle(payload)
 		}
 	})
 
-	topic := fmt.Sprintf("%s_message", prefix)
-	attr := common.BeansWatcherAttr{
-		TubeName:       topic,
-		ReserveTimeOut: 2 * time.Minute,
-		Pool:           messagePool,
-	}
+	topic := prefix + "_message"
+	merchantConsumer.Subscribe(topic, consumer.MessageSelector{}, func(ctx context.Context,
+		msgs ...*primitive.MessageExt) (consumer.ConsumeResult, error) {
+		for i := range msgs {
 
-	// 场馆转账订单确认队列
-	common.BeanstalkWatcher(beanPool, attr)
+			fmt.Println("message 收到消息：", string(msgs[i].Body))
+			// 注单自动确认
+			if err := confirmPool.Invoke(string(msgs[i].Body)); err != nil {
+				fmt.Printf("invoke error: %s\n", err.Error())
+				continue
+			}
+		}
+
+		return consumer.ConsumeSuccess, nil
+	})
 }
 
-func messageHandle(param map[string]interface{}) {
+func messageHandle(payload string) {
 
-	common.Log("message", "messageHandle param : %v \n", param)
+	common.Log("rocketMessage", "messageHandle payload : %v \n", payload)
+
+	param := map[string]interface{}{}
+	m := &fasthttp.Args{}
+	m.Parse(payload)
+	if m.Len() == 0 {
+		common.Log("rocketMessage", "messageHandle payload  is null\n")
+		return
+	}
+
+	m.VisitAll(func(key, value []byte) {
+		param[string(key)] = string(value)
+	})
 
 	//1 发送站内信 2 删除站内信
 	flag, ok := param["flag"].(string)
 	if !ok {
-		common.Log("message", "messageHandle flag param null : %v \n", param)
+		common.Log("rocketMessage", "messageHandle flag param null : %v \n", param)
 		return
 	}
 
@@ -89,7 +77,7 @@ func deleteHandle(param map[string]interface{}) {
 
 	msgID, ok := param["message_id"].(string)
 	if !ok {
-		common.Log("message", "deleteHandle msgID param null : %v \n", param)
+		common.Log("rocketMessage", "deleteHandle msgID param null : %v \n", param)
 		return
 	}
 
@@ -102,7 +90,7 @@ func deleteHandle(param map[string]interface{}) {
 	fmt.Println(query)
 	err := td.Select(&tss, query)
 	if err != nil {
-		common.Log("message", "query : %s, error : %v \n", query, err)
+		common.Log("rocketMessage", "query : %s, error : %v \n", query, err)
 		return
 	}
 
@@ -128,31 +116,31 @@ func sendHandle(param map[string]interface{}) {
 
 	msgID, ok := param["message_id"].(string)
 	if !ok {
-		common.Log("message", "sendHandle msgID param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle msgID param null : %v \n", param)
 		return
 	}
 	//标题
 	title, ok := param["title"].(string)
 	if !ok {
-		common.Log("message", "sendHandle title param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle title param null : %v \n", param)
 		return
 	}
 	//副标题
 	subTitle, ok := param["sub_title"].(string)
 	if !ok {
-		common.Log("message", "sendHandle sub_title param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle sub_title param null : %v \n", param)
 		return
 	}
 	//内容
 	content, ok := param["content"].(string)
 	if !ok {
-		common.Log("message", "sendHandle content param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle content param null : %v \n", param)
 		return
 	}
 	//0不置顶 1置顶
 	isTop, ok := param["is_top"].(string)
 	if !ok {
-		common.Log("message", "sendHandle is_top param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle is_top param null : %v \n", param)
 		return
 	}
 
@@ -161,7 +149,7 @@ func sendHandle(param map[string]interface{}) {
 		"1": true,
 	}
 	if _, ok := isTops[isTop]; !ok {
-		common.Log("message", "sendHandle is_top param err : %s \n", isTop)
+		common.Log("rocketMessage", "sendHandle is_top param err : %s \n", isTop)
 		return
 	}
 
@@ -169,14 +157,14 @@ func sendHandle(param map[string]interface{}) {
 	//0不推送 1推送
 	isPush, ok := param["is_push"].(string)
 	if !ok {
-		common.Log("message", "sendHandle is_push param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle is_push param null : %v \n", param)
 		return
 	}
 
 	//0非vip站内信 1vip站内信
 	isVip, ok := param["is_vip"].(string)
 	if !ok {
-		common.Log("message", "sendHandle is_vip param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle is_vip param null : %v \n", param)
 		return
 	}
 
@@ -185,7 +173,7 @@ func sendHandle(param map[string]interface{}) {
 		"1": true,
 	}
 	if _, ok := isVips[isVip]; !ok {
-		common.Log("message", "sendHandle is_vip param err : %s \n", isVip)
+		common.Log("rocketMessage", "sendHandle is_vip param err : %s \n", isVip)
 		return
 	}
 
@@ -193,7 +181,7 @@ func sendHandle(param map[string]interface{}) {
 	//1站内消息 2活动消息
 	ty, ok := param["ty"].(string)
 	if !ok {
-		common.Log("message", "sendHandle ty param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle ty param null : %v \n", param)
 		return
 	}
 
@@ -202,7 +190,7 @@ func sendHandle(param map[string]interface{}) {
 		"2": true,
 	}
 	if _, ok := tys[ty]; !ok {
-		common.Log("message", "sendHandle ty param err : %s \n", ty)
+		common.Log("rocketMessage", "sendHandle ty param err : %s \n", ty)
 		return
 	}
 
@@ -210,13 +198,13 @@ func sendHandle(param map[string]interface{}) {
 	//发送人名
 	sendName, ok := param["send_name"].(string)
 	if !ok {
-		common.Log("message", "sendHandle send_name param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle send_name param null : %v \n", param)
 		return
 	}
 	//商户前缀
 	prefix, ok := param["prefix"].(string)
 	if !ok {
-		common.Log("message", "sendHandle prefix param null : %v \n", param)
+		common.Log("rocketMessage", "sendHandle prefix param null : %v \n", param)
 		return
 	}
 
@@ -228,12 +216,12 @@ func sendHandle(param map[string]interface{}) {
 	fmt.Println(query)
 	err := db.Get(&sendState, query)
 	if err != nil {
-		common.Log("message", "query : %s, error : %v \n", query, err)
+		common.Log("rocketMessage", "query : %s, error : %v \n", query, err)
 		return
 	}
 
 	if sendState == 2 {
-		common.Log("message", "duplicate process \n")
+		common.Log("rocketMessage", "duplicate process \n")
 		return
 	}
 
@@ -242,7 +230,7 @@ func sendHandle(param map[string]interface{}) {
 		//会员名
 		usernames, ok := param["usernames"].(string)
 		if !ok || usernames == "" {
-			common.Log("message", "sendHandle level param null : %v \n", param)
+			common.Log("rocketMessage", "sendHandle level param null : %v \n", param)
 			return
 		}
 
@@ -269,7 +257,7 @@ func sendHandle(param map[string]interface{}) {
 		//会员等级
 		level, ok := param["level"].(string)
 		if !ok {
-			common.Log("message", "sendHandle level param null : %v \n", param)
+			common.Log("rocketMessage", "sendHandle level param null : %v \n", param)
 			return
 		}
 
@@ -290,7 +278,7 @@ func sendHandle(param map[string]interface{}) {
 	fmt.Println(query)
 	_, err = db.Exec(query)
 	if err != nil {
-		common.Log("message", "query : %s, error : %v \n", query, err)
+		common.Log("rocketMessage", "query : %s, error : %v \n", query, err)
 		return
 	}
 }
@@ -302,7 +290,7 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, sendName, prefix,
 	}
 	count, err := common.MembersCount(db, ex)
 	if err != nil {
-		common.Log("message", "error : %v", err)
+		common.Log("rocketMessage", "error : %v", err)
 		return err
 	}
 
@@ -321,13 +309,13 @@ func sendLevelMessage(msgID, title, subTitle, content, isPush, sendName, prefix,
 	for j := 1; j <= p; j++ {
 		ns, err := common.MembersPageNames(db, j, 100, ex)
 		if err != nil {
-			common.Log("message", "MembersPageNames error : %v \n", err)
+			common.Log("rocketMessage", "MembersPageNames error : %v \n", err)
 			return err
 		}
 
 		err = sendMessage(msgID, title, subTitle, content, isPush, sendName, prefix, isTop, isVip, ty, ns)
 		if err != nil {
-			common.Log("message", "sendMessage error : %v \n", err)
+			common.Log("rocketMessage", "sendMessage error : %v \n", err)
 			return err
 		}
 	}

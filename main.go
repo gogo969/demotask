@@ -11,6 +11,7 @@ import (
 	"task/modules/message"
 	"task/modules/promo"
 	"task/modules/risk"
+	"task/modules/rocket"
 	"task/modules/sms"
 )
 
@@ -30,6 +31,7 @@ var cb = map[string]fn{
 	"message": message.Parse, //站内信批量发送
 	"promo":   promo.Parse,   //活动流水更新
 	"sms":     sms.Parse,     //短信自动过期
+	"rocket":  rocket.Parse,  //rocketMQ 消息站内信消息
 }
 
 func main() {
