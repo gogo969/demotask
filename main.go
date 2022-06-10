@@ -5,14 +5,7 @@ import (
 	_ "go.uber.org/automaxprocs"
 	"os"
 	"strings"
-	"task/modules/banner"
-	"task/modules/bonus"
-	"task/modules/evo"
-	"task/modules/message"
-	"task/modules/promo"
-	"task/modules/risk"
-	"task/modules/rocket"
-	"task/modules/sms"
+	"task/modules/trc20"
 )
 
 var (
@@ -24,14 +17,7 @@ var (
 type fn func([]string, string)
 
 var cb = map[string]fn{
-	"banner":  banner.Parse,  //活动流水更新
-	"bonus":   bonus.Parse,   //电子游戏奖金池
-	"risk":    risk.Parse,    //风控自动派单脚本
-	"evo":     evo.Parse,     //evo
-	"message": message.Parse, //站内信批量发送
-	"promo":   promo.Parse,   //活动流水更新
-	"sms":     sms.Parse,     //短信自动过期
-	"rocket":  rocket.Parse,  //rocketMQ 消息站内信消息
+	"trc20": trc20.Parse, //rocketMQ trc20查单确认
 }
 
 func main() {

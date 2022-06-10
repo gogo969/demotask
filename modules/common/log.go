@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	db *sqlx.DB
+	db      *sqlx.DB
+	dialect = g.Dialect("mysql")
 )
 
 // InitTD 初始化td

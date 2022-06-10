@@ -1,4 +1,4 @@
-package rocket
+package trc20
 
 import (
 	"github.com/apache/rocketmq-client-go/v2"
